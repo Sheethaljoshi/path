@@ -10,6 +10,10 @@ import os
 import ast
 import itertools
 import math
+import matplotlib.animation as animation
+from matplotlib.offsetbox import (OffsetImage, AnnotationBbox)
+import matplotlib.image as image
+
 
 image_path=""
 
@@ -440,6 +444,66 @@ def get_directions(named_points, shortest_path):
 
         currenttheta = theta
 
+def path_creation(coordinates, num_points=10):
+    
+    path=[]
+    
+    for i in range(len(coordinates) - 1):
+            init = coordinates[i]     
+            final = coordinates[i + 1]  
+            
+            for j in range(num_points + 1):
+                x = init[0] + (final[0] - init[0]) * (j / num_points)
+                y = init[1] + (final[1] - init[1]) * (j / num_points)
+                path.append((x, y))
+                
+    path.append(coordinates[-1])
+        
+    return path
+
+global Previousartist
+
+def plotting_line(path_points):
+
+    global Previousartist
+    
+    fig, ax = plt.subplots()
+    img = Image.open(image_path)
+    ax.imshow(img)
+    
+    ax.set(xlim=[0, img.width], ylim=[0,img.height])
+    
+    x_coords, y_coords = zip(*path_points)
+    line2 = ax.plot(x_coords[0], y_coords[0])[0]
+
+    logo = image.imread("rover.png")
+    imagebox = OffsetImage(logo, zoom = 0.05)
+    ab = AnnotationBbox(imagebox, (x_coords[0], y_coords[0]), frameon = False)
+    Previousartist=ax.add_artist(ab)
+    speed = int(input("Enter speed (e.g., 0.1 for slow, 1.0 for normal, 2.0 for fast): "))
+    def update(frame):
+        
+        global Previousartist
+        
+        t = x_coords
+        z = y_coords
+
+        x = t[:frame]
+        y = z[:frame]
+
+        line2.set_xdata(t[:frame])
+        line2.set_ydata(z[:frame])
+        
+        Previousartist.remove()
+        
+        ab = AnnotationBbox(imagebox, (t[frame], z[frame]), frameon = False)
+        Previousartist=ax.add_artist(ab)
+
+        return line2
+    
+    ani = animation.FuncAnimation(fig=fig, func=update, frames=len(path_points), interval=float(30 / speed))
+    plt.show()
+
 def integrate_with_second_program(named_points):
 
 
@@ -462,11 +526,18 @@ def integrate_with_second_program(named_points):
     
     if shortest_path:
         print(f"Shortest path covering all nodes with fixed start '{start_node}' and end '{end_node}': {' -> '.join(shortest_path)}")
+        
         print(f"Total distance: {shortest_distance}")
 
         get_directions(named_points, shortest_path)
-
+        
         weighted_graph.visualize_graph_on_image(named_points=named_points,highlight_path=shortest_path)
+
+        shortest_coords = [named_points[x] for x in shortest_path]
+        
+        path_points = path_creation(shortest_coords, num_points=10)
+        
+        plotting_line(path_points)
 
     else:
         print("No valid path found.")
