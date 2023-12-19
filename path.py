@@ -418,12 +418,15 @@ def select_points(graph):
         # Pass the named points to the second program
         weighted_graph = integrate_with_second_program(named_points)
 
+global initaltheta
 
 def get_directions(named_points, shortest_path):
+    global initaltheta
     shortest_coords = [named_points[x] for x in shortest_path]
-    currenttheta = float(input("Enter the current orientation in degrees with respect to the x-axis: "))
-
+    initaltheta = float(input("Enter the current orientation in degrees with respect to the x-axis: "))
+    currenttheta = initaltheta
     directions = []
+    angles=[]
     for i in range(len(shortest_coords)-1):
         initial = shortest_coords[i]
         final = shortest_coords[i+1]
@@ -435,14 +438,15 @@ def get_directions(named_points, shortest_path):
         distance = math.sqrt(deltax**2 + deltay**2)
         
 
-        
+        angles.append((theta-currenttheta))
         directions.append(((theta-currenttheta), distance))
 
-        
         
         print(f"Turn {theta-currenttheta} degrees and travel {distance} units.")
 
         currenttheta = theta
+    return angles
+    
 
 def path_creation(coordinates, num_points=10):
     
@@ -455,18 +459,25 @@ def path_creation(coordinates, num_points=10):
             for j in range(num_points + 1):
                 x = init[0] + (final[0] - init[0]) * (j / num_points)
                 y = init[1] + (final[1] - init[1]) * (j / num_points)
-                path.append((x, y))
+                path.append((int(x), int(y)))
                 
     path.append(coordinates[-1])
         
     return path
 
 global Previousartist
+global logo
+global g
+global count
 
-def plotting_line(path_points):
+def plotting_line(path_points,shortest_coords,angles):
 
     global Previousartist
-    
+    global logo
+    global initaltheta
+    global g
+    global count
+    global oglogo
     fig, ax = plt.subplots()
     img = Image.open(image_path)
     ax.imshow(img)
@@ -476,21 +487,59 @@ def plotting_line(path_points):
     x_coords, y_coords = zip(*path_points)
     line2 = ax.plot(x_coords[0], y_coords[0])[0]
 
-    logo = image.imread("rover.png")
-    imagebox = OffsetImage(logo, zoom = 0.05)
+    logo = Image.open("rover.png")
+    logo=logo.rotate((90-initaltheta))
+    oglogo = logo.rotate((90-initaltheta))
+    imagebox = OffsetImage(logo, zoom = 0.09)
     ab = AnnotationBbox(imagebox, (x_coords[0], y_coords[0]), frameon = False)
     Previousartist=ax.add_artist(ab)
-    speed = int(input("Enter speed (e.g., 0.1 for slow, 1.0 for normal, 2.0 for fast): "))
+    speed = float(input("Enter speed (e.g., 0.1 for slow, 1.0 for normal, 2.0 for fast): "))
+    
+    g=1
+    count=0
     def update(frame):
         
         global Previousartist
+        global logo
+        global initaltheta
+        global g
+        global count
+        global oglogo
         
         t = x_coords
         z = y_coords
 
         x = t[:frame]
         y = z[:frame]
+        
+    
+        
+        
+          
+        if (t[frame],z[frame]) in shortest_coords:
+            if (t[frame],z[frame])==shortest_coords[-1]:
+                logo=oglogo
+            else:    
+                if angles[count]<0:
+                    realangle = 360+angles[count]
+                else:
+                    realangle = angles[count]
+                
+                logo=logo.rotate((realangle/2))
+                     
+                print(realangle)
+                g=-g
+                if g==1:
+                    count+=1
+                
+                if count==len(angles):
+                    count=0
+            
 
+                print(f"({t[frame]},{z[frame]}) {realangle} {count}")
+            
+        imagebox = OffsetImage(logo, zoom = 0.09)
+        
         line2.set_xdata(t[:frame])
         line2.set_ydata(z[:frame])
         
@@ -503,6 +552,8 @@ def plotting_line(path_points):
     
     ani = animation.FuncAnimation(fig=fig, func=update, frames=len(path_points), interval=float(30 / speed))
     plt.show()
+
+        
 
 def integrate_with_second_program(named_points):
 
@@ -529,7 +580,7 @@ def integrate_with_second_program(named_points):
         
         print(f"Total distance: {shortest_distance}")
 
-        get_directions(named_points, shortest_path)
+        angles=get_directions(named_points, shortest_path)
         
         weighted_graph.visualize_graph_on_image(named_points=named_points,highlight_path=shortest_path)
 
@@ -537,7 +588,7 @@ def integrate_with_second_program(named_points):
         
         path_points = path_creation(shortest_coords, num_points=10)
         
-        plotting_line(path_points)
+        plotting_line(path_points,shortest_coords,angles)
 
     else:
         print("No valid path found.")
